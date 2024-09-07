@@ -13,10 +13,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Eye, EyeOff } from "lucide-react";
-import { login } from "@/actions/auth";
+import { useLogin } from "@/actions/auth";
 import Link from "next/link";
-import { useAppSelector, useAppStore } from "@/lib/hooks";
-import authSlice from "@/features/auth";
+import { useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
 
 export default function Login() {
@@ -27,9 +26,9 @@ export default function Login() {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
-  const store = useAppStore();
   const session = useAppSelector((state) => state.auth.session);
   const router = useRouter();
+  const { login, error: loginError, isLoading: isLoginLoading } = useLogin();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,24 +36,22 @@ export default function Login() {
     setEmailError("");
     setPasswordError("");
 
-    const [error, session] = await login(email, password);
-    if (error?.error) {
-      setError(error.error);
-      return;
-    }
-    if (error?.email) setEmailError(error.email);
-    if (error?.password) setPasswordError(error.password);
-
-    if (session) {
-      store.dispatch(authSlice.actions.setSession(session.user));
-    }
+    await login(email, password);
   };
 
   useEffect(() => {
+    if (loginError?.error) {
+      setError(loginError.error);
+      return;
+    }
+    if (loginError?.email) setEmailError(loginError.email);
+    if (loginError?.password) setPasswordError(loginError.password);
+
     if (session) {
       router.push("/dashboard");
+      return;
     }
-  }, [session]);
+  }, [loginError, session]);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -124,7 +121,11 @@ export default function Login() {
                 <div className="text-sm text-red-500">{error}</div>
               ) : null}
             </div>
-            <Button className="w-full mt-6" type="submit">
+            <Button
+              disabled={isLoginLoading}
+              className="w-full mt-6"
+              type="submit"
+            >
               Iniciar Sesión
             </Button>
           </form>

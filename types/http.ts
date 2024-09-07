@@ -1,5 +1,7 @@
 
 
-export type HttpError = {
+export type HttpError<T = {}> = Partial<Record<keyof T, string>> & {
     error?: string;
-} & Record<string, string>;
+    statusCode?: number;
+    message?: string;
+};

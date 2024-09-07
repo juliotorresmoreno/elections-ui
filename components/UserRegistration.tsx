@@ -15,7 +15,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
-import { register } from "@/actions/auth";
+import { useRegister } from "@/actions/auth";
 import { useAppSelector, useAppStore } from "@/lib/hooks";
 import authSlice from "@/features/auth";
 import { useRouter } from "next/router";
@@ -37,6 +37,11 @@ export default function UserRegistration() {
   const store = useAppStore();
   const session = useAppSelector((state) => state.auth.session);
   const router = useRouter();
+  const {
+    register,
+    error: registerError,
+    isLoading: isRegisterLoading,
+  } = useRegister();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,25 +57,22 @@ export default function UserRegistration() {
       return;
     }
 
-    const [error, session] = await register(email, password, fullname);
-    if (error?.error) {
-      setError(error.error);
-      return;
-    }
-    if (error?.full_name) setFullnameError(error.full_name);
-    if (error?.email) setEmailError(error.email);
-    if (error?.password) setPasswordError(error.password);
-
-    if (session) {
-      store.dispatch(authSlice.actions.setSession(session.user));
-    }
+    await register(email, password, fullname);
   };
 
   useEffect(() => {
+    if (registerError?.error) {
+      setError(registerError.error);
+      return;
+    }
+    if (registerError?.full_name) setFullnameError(registerError.full_name);
+    if (registerError?.email) setEmailError(registerError.email);
+    if (registerError?.password) setPasswordError(registerError.password);
+
     if (session) {
       router.push("/dashboard");
     }
-  }, [session]);
+  }, [registerError, session]);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">

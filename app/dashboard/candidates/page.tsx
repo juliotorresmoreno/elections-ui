@@ -4,7 +4,7 @@ import { useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
 import React, { Suspense, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import CandidateManagement from "./CandidateManagement";
+import CandidateManagement from "@/components/CandidateManagement";
 
 export default function Page() {
   const router = useRouter();

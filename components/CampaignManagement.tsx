@@ -29,20 +29,25 @@ import {
   PlusCircle,
   Calendar,
   FileText,
-  User,
   Search,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  useFindCampaigns,
+  useCreateCampaign,
+  useUpdateCampaign,
+  useRemoveCampaign,
+} from "@/actions/campaign";
+import { useFindCandidates } from "@/actions/candidate";
 
 type Campaign = {
   id: number;
   name: string;
   description: string;
-  startDate: string;
-  endDate: string;
-  candidates: Candidate[];
+  start_date: string;
+  end_date: string;
 };
 
 type Candidate = {
@@ -51,23 +56,14 @@ type Candidate = {
   position: string;
 };
 
-const availableCandidates: Candidate[] = [
-  { id: 1, name: "John Doe", position: "Mayor" },
-  { id: 2, name: "Jane Smith", position: "City Council" },
-  { id: 3, name: "Mike Johnson", position: "Treasurer" },
-  { id: 4, name: "Emily Brown", position: "School Board" },
-  { id: 5, name: "David Lee", position: "County Commissioner" },
-  { id: 6, name: "Sarah Wilson", position: "City Planner" },
-  { id: 7, name: "Robert Taylor", position: "Parks Director" },
-  { id: 8, name: "Lisa Chen", position: "Public Works Manager" },
-  { id: 9, name: "James Rodriguez", position: "Police Chief" },
-  { id: 10, name: "Amanda White", position: "Fire Chief" },
-];
-
 export default function CampaignManagement() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [currentCampaign, setCurrentCampaign] =
-    useState<Partial<Campaign> | null>(null);
+  const [currentCampaign, setCurrentCampaign] = useState<
+    Partial<Campaign> & { candidates?: Candidate[] }
+  >({});
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [descriptionError, setDescriptionError] = useState<string | null>(null);
+  const [startDateError, setStartDateError] = useState<string | null>(null);
+  const [endDateError, setEndDateError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"create" | "update">("create");
@@ -76,109 +72,151 @@ export default function CampaignManagement() {
   );
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Hooks for API calls
+  const {
+    find,
+    data: campaigns,
+    error: findError,
+    isLoading: isLoadingCampaigns,
+  } = useFindCampaigns();
+  const {
+    create,
+    error: createError,
+    isLoading: createIsLoading,
+  } = useCreateCampaign();
+  const {
+    update,
+    error: updateError,
+    isLoading: updateIsLoading,
+  } = useUpdateCampaign();
+  const {
+    remove,
+    error: removeError,
+    isLoading: removeIsLoading,
+  } = useRemoveCampaign();
+  const { find: findCandidates, data: candidates } = useFindCandidates();
+
   useEffect(() => {
-    setCampaigns([
-      {
-        id: 1,
-        name: "Local Election 2023",
-        description: "Campaign for local city council",
-        startDate: "2023-08-01",
-        endDate: "2023-11-15",
-        candidates: [],
-      },
-      {
-        id: 2,
-        name: "State Senate Race",
-        description: "Campaign for state senate seat",
-        startDate: "2023-09-01",
-        endDate: "2024-03-30",
-        candidates: [],
-      },
-    ]);
-  }, []);
+    find(); // Fetch campaigns on mount
+    findCandidates(); // Fetch candidates on mount
+  }, [find, findCandidates]);
+
+  useEffect(() => {
+    // Handling API errors
+    if (findError || createError || updateError || removeError) {
+      setError(
+        findError?.message ||
+          createError?.message ||
+          updateError?.message ||
+          removeError?.message ||
+          "An unexpected error occurred"
+      );
+    } else {
+      setError(null);
+    }
+  }, [findError, createError, updateError, removeError]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
     setCurrentCampaign((prev) => ({ ...prev, [name]: value }));
-  };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (
-      !currentCampaign?.name ||
-      !currentCampaign.startDate ||
-      !currentCampaign.endDate
-    ) {
-      setError("Please fill in all required fields.");
-      return;
+    switch (name) {
+      case "name":
+        setNameError(null);
+        break;
+      case "description":
+        setDescriptionError(null);
+        break;
+      case "start_date":
+        setStartDateError(null);
+        break;
+      case "end_date":
+        setEndDateError(null);
+        break;
     }
-
-    const updatedCampaign = {
-      ...(currentCampaign as Campaign),
-      candidates: currentCampaign.candidates || [],
-    };
-
-    if (dialogMode === "create") {
-      setCampaigns([...campaigns, { ...updatedCampaign, id: Date.now() }]);
-    } else {
-      setCampaigns(
-        campaigns.map((c) =>
-          c.id === currentCampaign.id ? updatedCampaign : c
-        )
-      );
-    }
-
-    setCurrentCampaign(null);
-    setIsDialogOpen(false);
-    setError(null);
   };
 
   const toggleCandidate = (candidate: Candidate) => {
     setCurrentCampaign((prev) => {
       const currentCandidates = prev?.candidates || [];
-      const candidateIndex = currentCandidates.findIndex(
-        (c) => c.id === candidate.id
-      );
-
-      if (candidateIndex > -1) {
-        // Remove candidate if already selected
-        return {
-          ...prev,
-          candidates: currentCandidates.filter((c) => c.id !== candidate.id),
-        };
-      } else {
-        // Add candidate if not selected
-        return {
-          ...prev,
-          candidates: [...currentCandidates, candidate],
-        };
-      }
+      const isSelected = currentCandidates.some((c) => c.id === candidate.id);
+      const updatedCandidates = isSelected
+        ? currentCandidates.filter((c) => c.id !== candidate.id)
+        : [...currentCandidates, candidate];
+      return { ...prev, candidates: updatedCandidates };
     });
   };
 
-  const deleteCampaign = (id: number) => {
-    setCampaigns(campaigns.filter((campaign) => campaign.id !== id));
-    setDeletingCampaignId(null);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    let hasError = false;
+
+    if (!currentCampaign?.name) {
+      setNameError("Campaign name is required");
+      hasError = true;
+    }
+
+    if (!currentCampaign?.description) {
+      setDescriptionError("Description is required");
+      hasError = true;
+    }
+
+    if (!currentCampaign?.start_date) {
+      setStartDateError("Start date is required");
+      hasError = true;
+    }
+
+    if (!currentCampaign?.end_date) {
+      setEndDateError("End date is required");
+      hasError = true;
+    }
+
+    if (hasError) {
+      return;
+    }
+
+    try {
+      if (dialogMode === "create") {
+        await create(currentCampaign as Omit<Campaign, "id">);
+      } else {
+        await update(currentCampaign!.id!, currentCampaign as Campaign);
+      }
+      find(); // Refresh campaigns list after create/update
+      setIsDialogOpen(false);
+      setCurrentCampaign({});
+    } catch (apiError: any) {
+      setError(
+        apiError.message || "An error occurred while saving the campaign."
+      );
+    }
+  };
+
+  const deleteCampaign = async (id: number) => {
+    try {
+      await remove(id);
+      find(); // Refresh campaigns list after deletion
+    } catch (apiError: any) {
+      setError(
+        apiError.message || "An error occurred while deleting the campaign."
+      );
+    }
   };
 
   const openDialog = (mode: "create" | "update", campaign?: Campaign) => {
     setDialogMode(mode);
     setCurrentCampaign(
-      campaign || {
-        name: "",
-        description: "",
-        startDate: "",
-        endDate: "",
-        candidates: [],
-      }
+      campaign ? { ...campaign, candidates: [] } : { candidates: [] }
     );
     setIsDialogOpen(true);
-    setSearchTerm("");
+    setNameError(null);
+    setDescriptionError(null);
+    setStartDateError(null);
+    setEndDateError(null);
   };
 
-  const filteredCandidates = availableCandidates.filter(
+  const filteredCandidates = candidates?.filter(
     (candidate) =>
       candidate.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       candidate.position.toLowerCase().includes(searchTerm.toLowerCase())
@@ -218,7 +256,12 @@ export default function CampaignManagement() {
           <Tabs defaultValue="details" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="details">Campaign Details</TabsTrigger>
-              <TabsTrigger value="candidates">Candidates</TabsTrigger>
+              <TabsTrigger
+                value="candidates"
+                disabled={dialogMode === "create"}
+              >
+                Candidates
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="details">
               <form onSubmit={handleSubmit} className="space-y-6">
@@ -231,10 +274,12 @@ export default function CampaignManagement() {
                     name="name"
                     value={currentCampaign?.name || ""}
                     onChange={handleInputChange}
-                    className="w-full"
+                    className={`w-full ${nameError ? "border-red-500" : ""}`}
                     placeholder="Enter campaign name"
-                    required
                   />
+                  {nameError && (
+                    <p className="text-sm text-red-500">{nameError}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="description" className="text-sm font-medium">
@@ -245,43 +290,56 @@ export default function CampaignManagement() {
                     name="description"
                     value={currentCampaign?.description || ""}
                     onChange={handleInputChange}
-                    className="w-full"
+                    className={`w-full ${
+                      descriptionError ? "border-red-500" : ""
+                    }`}
                     placeholder="Enter campaign description"
                     rows={3}
                   />
+                  {descriptionError && (
+                    <p className="text-sm text-red-500">{descriptionError}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="startDate" className="text-sm font-medium">
+                  <Label htmlFor="start_date" className="text-sm font-medium">
                     Start Date
                   </Label>
                   <div className="relative">
                     <Input
-                      id="startDate"
-                      name="startDate"
+                      id="start_date"
+                      name="start_date"
                       type="date"
-                      value={currentCampaign?.startDate || ""}
+                      value={currentCampaign?.start_date || ""}
                       onChange={handleInputChange}
-                      className="w-full pl-10"
-                      required
+                      className={`w-full pl-10 ${
+                        startDateError ? "border-red-500" : ""
+                      }`}
                     />
                     <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                    {startDateError && (
+                      <p className="text-sm text-red-500">{startDateError}</p>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="endDate" className="text-sm font-medium">
+                  <Label htmlFor="end_date" className="text-sm font-medium">
                     End Date
                   </Label>
                   <div className="relative">
                     <Input
-                      id="endDate"
-                      name="endDate"
+                      id="end_date"
+                      name="end_date"
                       type="date"
-                      value={currentCampaign?.endDate || ""}
+                      value={currentCampaign?.end_date || ""}
                       onChange={handleInputChange}
-                      className="w-full pl-10"
-                      required
+                      className={`w-full pl-10 ${
+                        endDateError ? "border-red-500" : ""
+                      }`}
                     />
                     <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                    {endDateError && (
+                      <p className="text-sm text-red-500">{endDateError}</p>
+                    )}
                   </div>
                 </div>
               </form>
@@ -331,6 +389,7 @@ export default function CampaignManagement() {
               type="submit"
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={handleSubmit}
+              disabled={createIsLoading || updateIsLoading}
             >
               {dialogMode === "create" ? (
                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -356,9 +415,6 @@ export default function CampaignManagement() {
                   Start Date
                 </TableHead>
                 <TableHead className="font-bold h-12 px-4">End Date</TableHead>
-                <TableHead className="font-bold h-12 px-4">
-                  Candidates
-                </TableHead>
                 <TableHead className="font-bold h-12 px-4 w-[150px]">
                   Actions
                 </TableHead>
@@ -372,13 +428,10 @@ export default function CampaignManagement() {
                     {campaign.description}
                   </TableCell>
                   <TableCell className="h-12 px-4">
-                    {campaign.startDate}
+                    {campaign.start_date}
                   </TableCell>
                   <TableCell className="h-12 px-4">
-                    {campaign.endDate}
-                  </TableCell>
-                  <TableCell className="h-12 px-4">
-                    {campaign.candidates.length}
+                    {campaign.end_date}
                   </TableCell>
                   <TableCell className="h-12 px-4 w-[150px]">
                     <Button
@@ -423,6 +476,7 @@ export default function CampaignManagement() {
                           <Button
                             variant="destructive"
                             onClick={() => deleteCampaign(campaign.id)}
+                            disabled={removeIsLoading}
                           >
                             Delete
                           </Button>
