@@ -20,7 +20,6 @@ export const authSlice = createSlice({
       state.token = action.payload
     },
     setSession: (state, action: PayloadAction<User>) => {
-      console.log(action.payload)
       state.session = action.payload
     },
     clearSession: (state) => {

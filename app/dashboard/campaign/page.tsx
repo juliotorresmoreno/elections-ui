@@ -3,7 +3,7 @@
 import { useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
 import React, { Suspense, useEffect } from "react";
-import CampaignManagement from "../../../components/CampaignManagement";
+import CampaignManagement from "@/components/CampaignManagement";
 import DashboardLayout from "@/components/DashboardLayout";
 
 export default function Page() {
